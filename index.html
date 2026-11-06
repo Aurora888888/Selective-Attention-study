@@ -12,11 +12,8 @@
   <script src="https://unpkg.com/@jspsych/extension-pipe@0.2.0"></script>
 </head>
 
-<body></body>
-
+<body>
 <script>
-const subject_id = jsPsych.randomization.randomID(10);
-
 const jsPsych = initJsPsych({
   extensions: [
     {
@@ -28,6 +25,8 @@ const jsPsych = initJsPsych({
     }
   ]
 });
+
+const subject_id = jsPsych.randomization.randomID(10);
 
 const timeline = [];
 
@@ -53,4 +52,5 @@ timeline.push({
 
 jsPsych.run(timeline);
 </script>
+</body>
 </html>
