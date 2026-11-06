@@ -3,24 +3,48 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Selective Attention Study</title>
+
+  <script src="https://unpkg.com/jspsych@8.2.1"></script>
+  <link href="https://unpkg.com/jspsych@8.2.1/css/jspsych.css" rel="stylesheet">
+
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-text@2.1.0"></script>
+
+  <script src="https://unpkg.com/@jspsych/plugin-pipe@1.0.1"></script>
 </head>
 
-<body style="font-family: Arial; text-align: center; padding: 50px;">
+<body></body>
 
-  <h1>Selective Attention Study</h1>
+<script>
+const jsPsych = initJsPsych();
 
-  <p>Welcome to our research study.</p>
+const timeline = [];
 
-  <p>
-    This study examines selective attention using a
-    Flanker Task.
-  </p>
+timeline.push({
+  type: jsPsychHtmlButtonResponse,
+  stimulus: `
+    <h2>Selective Attention Study</h2>
+    <p>Welcome! This is a test of the experiment system.</p>
+    <p>Click Start to continue.</p>
+  `,
+  choices: ["Start"]
+});
 
-  <button onclick="alert('Your experiment webpage is working!')">
-    Start
-  </button>
+timeline.push({
+  type: jsPsychHtmlButtonResponse,
+  stimulus: "<p>DataPipe connection test.</p>",
+  choices: ["Finish"]
+});
 
-</body>
+timeline.push({
+  type: jsPsychPipe,
+  action: "save",
+  experiment_id: "B19EGnjvuEar",
+  filename: "test_data.csv",
+  data_string: () => jsPsych.data.get().csv()
+});
+
+jsPsych.run(timeline);
+</script>
 </html>
