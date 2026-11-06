@@ -14,6 +14,8 @@
 
 <body>
 <script>
+
+// Step 1: Initialize jsPsych
 const jsPsych = initJsPsych({
   extensions: [
     {
@@ -26,8 +28,10 @@ const jsPsych = initJsPsych({
   ]
 });
 
+// Step 2: Generate participant ID
 const subject_id = jsPsych.randomization.randomID(10);
 
+// Step 3: Create test trials
 const timeline = [];
 
 timeline.push({
@@ -44,13 +48,15 @@ timeline.push({
   type: jsPsychHtmlButtonResponse,
   stimulus: `
     <h3>Connection test</h3>
-    <p>If you can see this page, jsPsych is working.</p>
+    <p>jsPsych is working!</p>
     <p>Click Finish to complete the test.</p>
   `,
   choices: ["Finish"]
 });
 
+// Step 4: Run experiment
 jsPsych.run(timeline);
+
 </script>
 </body>
 </html>
