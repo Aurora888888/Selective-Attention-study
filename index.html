@@ -61,6 +61,7 @@ const EXPERIMENT_ID = "B19EGnjvuEar";
 
 let practiceAttempt = 0;
 let practicePassed = false;
+const practiceHistory = [];
 
 const subject_id = Math.random().toString(36).substring(2, 12);
 
@@ -427,24 +428,19 @@ const practiceBlock = {
     practicePassed =
       responses.length === 8 && accuracy >= 0.75;
 
-    // Save practice performance for checking the CSV later.
-    jsPsych.data.write({
+    practiceHistory.push({
 
-      subject_id: subject_id,
+  practice_attempt: practiceAttempt,
 
-      phase: "practice_summary",
+  practice_correct: correctCount,
 
-      practice_attempt: practiceAttempt,
+  practice_total: responses.length,
 
-      practice_correct: correctCount,
+  practice_accuracy: accuracy,
 
-      practice_total: responses.length,
+  practice_passed: practicePassed
 
-      practice_accuracy: accuracy,
-
-      practice_passed: practicePassed
-
-    });
+});
 
     // Repeat only if the participant has not passed
     // and has attempts remaining.
@@ -549,7 +545,7 @@ timeline.push({
 
   },
 
-  on_finish: function() {
+  on_finish: function(data) {
 
     const testData = jsPsych.data.get()
       .filter({
@@ -600,39 +596,41 @@ timeline.push({
     const incongruent =
       calculateCondition("incongruent");
 
-    jsPsych.data.write({
+ Object.assign(data, {
 
-      phase: "summary",
+  phase: "summary",
 
-      subject_id: subject_id,
+  subject_id: subject_id,
 
-      practice_attempts: practiceAttempt,
+  practice_attempts: practiceAttempt,
 
-      practice_passed: practicePassed,
+  practice_passed: practicePassed,
 
-      total_test_trials: testData.length,
+  practice_history: JSON.stringify(practiceHistory),
 
-      congruent_total_trials: congruent.total_trials,
+  total_test_trials: testData.length,
 
-      congruent_correct_trials: congruent.correct_trials,
+  congruent_total_trials: congruent.total_trials,
 
-      congruent_accuracy: congruent.accuracy,
+  congruent_correct_trials: congruent.correct_trials,
 
-      congruent_mean_correct_RT: congruent.mean_correct_RT,
+  congruent_accuracy: congruent.accuracy,
 
-      congruent_IES: congruent.IES,
+  congruent_mean_correct_RT: congruent.mean_correct_RT,
 
-      incongruent_total_trials: incongruent.total_trials,
+  congruent_IES: congruent.IES,
 
-      incongruent_correct_trials: incongruent.correct_trials,
+  incongruent_total_trials: incongruent.total_trials,
 
-      incongruent_accuracy: incongruent.accuracy,
+  incongruent_correct_trials: incongruent.correct_trials,
 
-      incongruent_mean_correct_RT: incongruent.mean_correct_RT,
+  incongruent_accuracy: incongruent.accuracy,
 
-      incongruent_IES: incongruent.IES
+  incongruent_mean_correct_RT: incongruent.mean_correct_RT,
 
-    });
+  incongruent_IES: incongruent.IES
+
+});
 
   }
 
