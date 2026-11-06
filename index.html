@@ -87,6 +87,12 @@ const jsPsych = initJsPsych({
 // 3. GENERATE FLANKER STIMULI
 // ======================================
 
+// repetitions = number of trials for EACH
+// congruency x target-direction combination.
+//
+// Practice: 2 x 4 combinations = 8 trials
+// Main task: 80 x 4 combinations = 320 trials
+
 function makeTrials(repetitions) {
 
   const trials = [];
@@ -109,11 +115,12 @@ function makeTrials(repetitions) {
           ? targetDirection
           : (targetDirection === "left" ? "right" : "left");
 
+      // Use the five-arrow format from the GitHub task.
       const targetArrow =
-        targetDirection === "left" ? "←" : "→";
+        targetDirection === "left" ? "&lt;" : "&gt;";
 
       const flankerArrow =
-        flankerDirection === "left" ? "←" : "→";
+        flankerDirection === "left" ? "&lt;" : "&gt;";
 
       trials.push({
 
@@ -125,7 +132,7 @@ function makeTrials(repetitions) {
           targetDirection === "left" ? "q" : "p",
 
         stimulus:
-          `<div class="arrows">${flankerArrow}${flankerArrow}${targetArrow}${flankerArrow}${flankerArrow}</div>`
+          `<div class="arrows">${flankerArrow} ${flankerArrow} ${targetArrow} ${flankerArrow} ${flankerArrow}</div>`
 
       });
 
@@ -153,6 +160,8 @@ function responseTrial(trial, phase, number) {
     trial_duration: 1750,
 
     data: () => ({
+
+      subject_id: subject_id,
 
       phase: phase,
 
@@ -199,7 +208,10 @@ function fixationTrial() {
 
     trial_duration: 1000,
 
-    data: { trial_type: "fixation" }
+    data: {
+      subject_id: subject_id,
+      trial_type: "fixation"
+    }
 
   };
 
@@ -231,7 +243,10 @@ function highlightTrial() {
 
     trial_duration: 100,
 
-    data: { trial_type: "response_highlight" }
+    data: {
+      subject_id: subject_id,
+      trial_type: "response_highlight"
+    }
 
   };
 
@@ -249,7 +264,10 @@ function blankTrial() {
 
     trial_duration: 500,
 
-    data: { trial_type: "inter_trial_interval" }
+    data: {
+      subject_id: subject_id,
+      trial_type: "inter_trial_interval"
+    }
 
   };
 
@@ -322,13 +340,17 @@ timeline.push({
 
   trial_duration: 3000,
 
-  data: { trial_type: "get_ready" }
+  data: {
+    subject_id: subject_id,
+    trial_type: "get_ready"
+  }
 
 });
 
 // ======================================
 // 8. PRACTICE BLOCK
-// 8 trials per block
+// 8 trials per attempt
+// At least 6 correct required
 // Maximum 3 attempts
 // ======================================
 
@@ -365,7 +387,10 @@ practiceTrials.forEach((trial, index) => {
 
     trial_duration: 1000,
 
-    data: { trial_type: "practice_feedback" }
+    data: {
+      subject_id: subject_id,
+      trial_type: "practice_feedback"
+    }
 
   });
 
@@ -381,18 +406,48 @@ const practiceBlock = {
 
     practiceAttempt++;
 
-    const responses = data.values().filter(
-      row => row.trial_type === "response"
-    );
+    // Retrieve the latest eight practice responses.
+    const responses = jsPsych.data.get()
+      .filter({
+        phase: "practice",
+        trial_type: "response"
+      })
+      .last(8)
+      .values();
 
     const correctCount = responses.filter(
       row => row.correct === 1
     ).length;
 
-    const accuracy = correctCount / 8;
+    const accuracy =
+      responses.length === 8
+        ? correctCount / 8
+        : 0;
 
-    practicePassed = accuracy >= 0.75;
+    practicePassed =
+      responses.length === 8 && accuracy >= 0.75;
 
+    // Save practice performance for checking the CSV later.
+    jsPsych.data.write({
+
+      subject_id: subject_id,
+
+      phase: "practice_summary",
+
+      practice_attempt: practiceAttempt,
+
+      practice_correct: correctCount,
+
+      practice_total: responses.length,
+
+      practice_accuracy: accuracy,
+
+      practice_passed: practicePassed
+
+    });
+
+    // Repeat only if the participant has not passed
+    // and has attempts remaining.
     return !practicePassed && practiceAttempt < 3;
 
   }
@@ -436,12 +491,14 @@ timeline.push({
 
 // ======================================
 // 10. MAIN TEST
-// 24 trials total
+// 320 trials total
+// 160 congruent
+// 160 incongruent
 // ======================================
 
 const testTimeline = [];
 
-const testTrials = makeTrials(6);
+const testTrials = makeTrials(80);
 
 testTrials.forEach((trial, index) => {
 
@@ -457,7 +514,7 @@ testTrials.forEach((trial, index) => {
 
 });
 
-// Only run the test if practice is passed
+// Only run the main test if practice is passed.
 timeline.push({
 
   timeline: testTimeline,
@@ -471,7 +528,7 @@ timeline.push({
 });
 
 // ======================================
-// 11. END SCREEN AND SUMMARY DATA
+// 11. SUCCESS END SCREEN AND SUMMARY DATA
 // ======================================
 
 timeline.push({
@@ -485,6 +542,12 @@ timeline.push({
   `,
 
   choices: ["Finish"],
+
+  conditional_function: function() {
+
+    return practicePassed;
+
+  },
 
   on_finish: function() {
 
@@ -517,11 +580,13 @@ timeline.push({
           : null;
 
       const IES =
-        accuracy > 0
+        accuracy !== null && accuracy > 0 && meanRT !== null
           ? meanRT / accuracy
           : null;
 
       return {
+        total_trials: rows.length,
+        correct_trials: correctRows.length,
         accuracy: accuracy,
         mean_correct_RT: meanRT,
         IES: IES
@@ -545,11 +610,21 @@ timeline.push({
 
       practice_passed: practicePassed,
 
+      total_test_trials: testData.length,
+
+      congruent_total_trials: congruent.total_trials,
+
+      congruent_correct_trials: congruent.correct_trials,
+
       congruent_accuracy: congruent.accuracy,
 
       congruent_mean_correct_RT: congruent.mean_correct_RT,
 
       congruent_IES: congruent.IES,
+
+      incongruent_total_trials: incongruent.total_trials,
+
+      incongruent_correct_trials: incongruent.correct_trials,
 
       incongruent_accuracy: incongruent.accuracy,
 
@@ -564,7 +639,7 @@ timeline.push({
 });
 
 // ======================================
-// 12. END IF PRACTICE IS NOT PASSED
+// 12. END SCREEN IF PRACTICE IS NOT PASSED
 // ======================================
 
 timeline.push({
@@ -596,4 +671,3 @@ jsPsych.run(timeline);
 </script>
 </body>
 </html>
-</code>
