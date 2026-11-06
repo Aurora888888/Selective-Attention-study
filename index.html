@@ -3,60 +3,597 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Selective Attention Study</title>
 
   <script src="https://unpkg.com/jspsych@8.2.1"></script>
   <link href="https://unpkg.com/jspsych@8.2.1/css/jspsych.css" rel="stylesheet">
 
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
   <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.1.0"></script>
   <script src="https://unpkg.com/@jspsych/extension-pipe@0.2.0"></script>
+
+  <style>
+    body {
+      background: white;
+      font-family: Arial, sans-serif;
+    }
+
+    .instructions {
+      max-width: 750px;
+      margin: auto;
+      line-height: 1.7;
+      font-size: 20px;
+    }
+
+    .arrows {
+      font-family: Arial, sans-serif;
+      font-size: 65px;
+      font-weight: bold;
+      letter-spacing: 5px;
+      white-space: nowrap;
+    }
+
+    .key-box {
+      display: inline-block;
+      border: 2px solid #888;
+      border-radius: 8px;
+      padding: 10px 22px;
+      margin: 10px;
+      font-size: 24px;
+    }
+
+    .selected {
+      background: #cce5ff;
+      border-color: #2878c8;
+    }
+  </style>
 </head>
 
 <body>
 <script>
 
-// Step 1: Initialize jsPsych
+// ======================================
+// 1. EXPERIMENT SETTINGS
+// ======================================
+
+const EXPERIMENT_ID = "B19EGnjvuEar";
+
+let practiceAttempt = 0;
+let practicePassed = false;
+
+const subject_id = Math.random().toString(36).substring(2, 12);
+
+// ======================================
+// 2. INITIALIZE jsPsych AND DATAPIPE
+// ======================================
+
 const jsPsych = initJsPsych({
+
   extensions: [
     {
       type: jsPsychExtensionPipe,
+
       params: {
-        experiment_id: "B19EGnjvuEar",
+        experiment_id: EXPERIMENT_ID,
         filename: () => `${subject_id}.csv`
       }
     }
   ]
+
 });
 
-// Step 2: Generate participant ID
-const subject_id = jsPsych.randomization.randomID(10);
+// ======================================
+// 3. GENERATE FLANKER STIMULI
+// ======================================
 
-// Step 3: Create test trials
+function makeTrials(repetitions) {
+
+  const trials = [];
+
+  const conditions = [
+    { congruency: "congruent", target: "left" },
+    { congruency: "congruent", target: "right" },
+    { congruency: "incongruent", target: "left" },
+    { congruency: "incongruent", target: "right" }
+  ];
+
+  conditions.forEach(condition => {
+
+    for (let i = 0; i < repetitions; i++) {
+
+      const targetDirection = condition.target;
+
+      const flankerDirection =
+        condition.congruency === "congruent"
+          ? targetDirection
+          : (targetDirection === "left" ? "right" : "left");
+
+      const targetArrow =
+        targetDirection === "left" ? "←" : "→";
+
+      const flankerArrow =
+        flankerDirection === "left" ? "←" : "→";
+
+      trials.push({
+
+        congruency: condition.congruency,
+
+        target_direction: targetDirection,
+
+        correct_key:
+          targetDirection === "left" ? "q" : "p",
+
+        stimulus:
+          `<div class="arrows">${flankerArrow}${flankerArrow}${targetArrow}${flankerArrow}${flankerArrow}</div>`
+
+      });
+
+    }
+
+  });
+
+  return jsPsych.randomization.shuffle(trials);
+}
+
+// ======================================
+// 4. CREATE A RESPONSE TRIAL
+// ======================================
+
+function responseTrial(trial, phase, number) {
+
+  return {
+
+    type: jsPsychHtmlKeyboardResponse,
+
+    stimulus: trial.stimulus,
+
+    choices: ["q", "p"],
+
+    trial_duration: 1750,
+
+    data: () => ({
+
+      phase: phase,
+
+      trial_type: "response",
+
+      trial_number: number,
+
+      block_number:
+        phase === "practice" ? practiceAttempt + 1 : 1,
+
+      congruency: trial.congruency,
+
+      target_direction: trial.target_direction,
+
+      correct_key: trial.correct_key
+
+    }),
+
+    on_finish: function(data) {
+
+      data.correct =
+        data.response === trial.correct_key ? 1 : 0;
+
+      data.response_key = data.response;
+
+    }
+
+  };
+}
+
+// ======================================
+// 5. FIXATION, HIGHLIGHT AND ITI
+// ======================================
+
+function fixationTrial() {
+
+  return {
+
+    type: jsPsychHtmlKeyboardResponse,
+
+    stimulus: "<div style='font-size:40px'>+</div>",
+
+    choices: "NO_KEYS",
+
+    trial_duration: 1000,
+
+    data: { trial_type: "fixation" }
+
+  };
+
+}
+
+function highlightTrial() {
+
+  return {
+
+    type: jsPsychHtmlKeyboardResponse,
+
+    stimulus: function() {
+
+      const last =
+        jsPsych.data.get().last(1).values()[0];
+
+      const response = last.response;
+
+      return `
+        <div>
+          <span class="key-box ${response === "q" ? "selected" : ""}">Q</span>
+          <span class="key-box ${response === "p" ? "selected" : ""}">P</span>
+        </div>
+      `;
+
+    },
+
+    choices: "NO_KEYS",
+
+    trial_duration: 100,
+
+    data: { trial_type: "response_highlight" }
+
+  };
+
+}
+
+function blankTrial() {
+
+  return {
+
+    type: jsPsychHtmlKeyboardResponse,
+
+    stimulus: "",
+
+    choices: "NO_KEYS",
+
+    trial_duration: 500,
+
+    data: { trial_type: "inter_trial_interval" }
+
+  };
+
+}
+
+// ======================================
+// 6. INTRODUCTION
+// ======================================
+
 const timeline = [];
 
 timeline.push({
+
   type: jsPsychHtmlButtonResponse,
+
   stimulus: `
-    <h2>Selective Attention Study</h2>
-    <p>Welcome! This is a test of the experiment system.</p>
-    <p>Click Start to continue.</p>
+    <div class="instructions">
+
+      <h2>Arrow Flanker Task</h2>
+
+      <p>
+        In this task, you will see five arrows displayed
+        in the middle of the screen.
+      </p>
+
+      <p>
+        Your task is to identify the direction of the
+        <b>middle arrow</b>, while ignoring the other arrows.
+      </p>
+
+      <p>
+        Press <b>Q</b> if the middle arrow points LEFT.
+      </p>
+
+      <p>
+        Press <b>P</b> if the middle arrow points RIGHT.
+      </p>
+
+      <p>
+        Please respond as quickly and accurately as possible.
+        Keep your eyes on the screen and use a keyboard.
+      </p>
+
+      <p>
+        The task begins with practice trials, followed by
+        the actual test.
+      </p>
+
+    </div>
   `,
+
   choices: ["Start"]
+
 });
+
+// ======================================
+// 7. GET READY
+// ======================================
 
 timeline.push({
-  type: jsPsychHtmlButtonResponse,
+
+  type: jsPsychHtmlKeyboardResponse,
+
   stimulus: `
-    <h3>Connection test</h3>
-    <p>jsPsych is working!</p>
-    <p>Click Finish to complete the test.</p>
+    <h2>Get Ready</h2>
+    <p>The task will begin shortly.</p>
   `,
-  choices: ["Finish"]
+
+  choices: "NO_KEYS",
+
+  trial_duration: 3000,
+
+  data: { trial_type: "get_ready" }
+
 });
 
-// Step 4: Run experiment
+// ======================================
+// 8. PRACTICE BLOCK
+// 8 trials per block
+// Maximum 3 attempts
+// ======================================
+
+const practiceTrials = makeTrials(2);
+
+const practiceTimeline = [];
+
+practiceTrials.forEach((trial, index) => {
+
+  practiceTimeline.push(fixationTrial());
+
+  practiceTimeline.push(
+    responseTrial(trial, "practice", index + 1)
+  );
+
+  practiceTimeline.push(highlightTrial());
+
+  practiceTimeline.push({
+
+    type: jsPsychHtmlKeyboardResponse,
+
+    stimulus: function() {
+
+      const last =
+        jsPsych.data.get().last(2).values()[0];
+
+      return last.correct === 1
+        ? "<h3>Correct!</h3>"
+        : "<h3>Incorrect. Please remember to focus on the middle arrow.</h3>";
+
+    },
+
+    choices: "NO_KEYS",
+
+    trial_duration: 1000,
+
+    data: { trial_type: "practice_feedback" }
+
+  });
+
+  practiceTimeline.push(blankTrial());
+
+});
+
+const practiceBlock = {
+
+  timeline: practiceTimeline,
+
+  loop_function: function(data) {
+
+    practiceAttempt++;
+
+    const responses = data.values().filter(
+      row => row.trial_type === "response"
+    );
+
+    const correctCount = responses.filter(
+      row => row.correct === 1
+    ).length;
+
+    const accuracy = correctCount / 8;
+
+    practicePassed = accuracy >= 0.75;
+
+    return !practicePassed && practiceAttempt < 3;
+
+  }
+
+};
+
+timeline.push(practiceBlock);
+
+// ======================================
+// 9. PRACTICE RESULT
+// ======================================
+
+timeline.push({
+
+  type: jsPsychHtmlButtonResponse,
+
+  stimulus: function() {
+
+    if (practicePassed) {
+
+      return `
+        <h2>Practice Completed!</h2>
+        <p>You have achieved the required accuracy.</p>
+        <p>You are ready to begin the actual test.</p>
+      `;
+
+    }
+
+    return `
+      <h2>Practice Not Passed</h2>
+      <p>You did not reach the required accuracy
+      after three practice attempts.</p>
+      <p>The task will now end.</p>
+    `;
+
+  },
+
+  choices: ["Continue"]
+
+});
+
+// ======================================
+// 10. MAIN TEST
+// 24 trials total
+// ======================================
+
+const testTimeline = [];
+
+const testTrials = makeTrials(6);
+
+testTrials.forEach((trial, index) => {
+
+  testTimeline.push(fixationTrial());
+
+  testTimeline.push(
+    responseTrial(trial, "test", index + 1)
+  );
+
+  testTimeline.push(highlightTrial());
+
+  testTimeline.push(blankTrial());
+
+});
+
+// Only run the test if practice is passed
+timeline.push({
+
+  timeline: testTimeline,
+
+  conditional_function: function() {
+
+    return practicePassed;
+
+  }
+
+});
+
+// ======================================
+// 11. END SCREEN AND SUMMARY DATA
+// ======================================
+
+timeline.push({
+
+  type: jsPsychHtmlButtonResponse,
+
+  stimulus: `
+    <h2>Thank You!</h2>
+    <p>You have completed the Arrow Flanker Task.</p>
+    <p>Please click Finish to submit your responses.</p>
+  `,
+
+  choices: ["Finish"],
+
+  on_finish: function() {
+
+    const testData = jsPsych.data.get()
+      .filter({
+        phase: "test",
+        trial_type: "response"
+      })
+      .values();
+
+    function calculateCondition(condition) {
+
+      const rows = testData.filter(
+        row => row.congruency === condition
+      );
+
+      const correctRows = rows.filter(
+        row => row.correct === 1 && row.rt !== null
+      );
+
+      const accuracy =
+        rows.length > 0
+          ? correctRows.length / rows.length
+          : null;
+
+      const meanRT =
+        correctRows.length > 0
+          ? correctRows.reduce((sum, row) => sum + row.rt, 0)
+              / correctRows.length
+          : null;
+
+      const IES =
+        accuracy > 0
+          ? meanRT / accuracy
+          : null;
+
+      return {
+        accuracy: accuracy,
+        mean_correct_RT: meanRT,
+        IES: IES
+      };
+
+    }
+
+    const congruent =
+      calculateCondition("congruent");
+
+    const incongruent =
+      calculateCondition("incongruent");
+
+    jsPsych.data.write({
+
+      phase: "summary",
+
+      subject_id: subject_id,
+
+      practice_attempts: practiceAttempt,
+
+      practice_passed: practicePassed,
+
+      congruent_accuracy: congruent.accuracy,
+
+      congruent_mean_correct_RT: congruent.mean_correct_RT,
+
+      congruent_IES: congruent.IES,
+
+      incongruent_accuracy: incongruent.accuracy,
+
+      incongruent_mean_correct_RT: incongruent.mean_correct_RT,
+
+      incongruent_IES: incongruent.IES
+
+    });
+
+  }
+
+});
+
+// ======================================
+// 12. END IF PRACTICE IS NOT PASSED
+// ======================================
+
+timeline.push({
+
+  type: jsPsychHtmlButtonResponse,
+
+  stimulus: `
+    <h2>Thank You</h2>
+    <p>The practice requirement was not met.</p>
+    <p>Your task session has ended.</p>
+  `,
+
+  choices: ["Finish"],
+
+  conditional_function: function() {
+
+    return !practicePassed;
+
+  }
+
+});
+
+// ======================================
+// 13. RUN EXPERIMENT
+// ======================================
+
 jsPsych.run(timeline);
 
 </script>
 </body>
 </html>
+</code>
